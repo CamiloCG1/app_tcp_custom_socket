@@ -1,11 +1,15 @@
 package org.vinni.cliente.gui;
 
 import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * author: Vinni 2024
@@ -16,6 +20,8 @@ public class PrincipalCli extends javax.swing.JFrame {
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
+
+    private List<String> comboBoxItems = new ArrayList<>();
 
     /**
      * Creates new form Principal1
@@ -42,6 +48,9 @@ public class PrincipalCli extends javax.swing.JFrame {
         jLabel3 = new javax.swing.JLabel();
         btEnviar = new javax.swing.JButton();
         nickname = new javax.swing.JTextField();
+        checkBox1 = new JCheckBox();
+        checkBox2 = new JCheckBox();
+        comboBox = new JComboBox<>();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         getContentPane().setLayout(null);
@@ -54,25 +63,20 @@ public class PrincipalCli extends javax.swing.JFrame {
             }
         });
         getContentPane().add(bConectar);
-        bConectar.setBounds(260, 40, 210, 40);
+        bConectar.setBounds(250, 40, 190, 35);
 
         jLabel1.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
         jLabel1.setForeground(new java.awt.Color(204, 0, 0));
         jLabel1.setText("CLIENTE: No Connection");
         getContentPane().add(jLabel1);
-        jLabel1.setBounds(110, 10, 250, 17);
-
-        mensajesTxt.setColumns(20);
-        mensajesTxt.setRows(5);
-        mensajesTxt.setEnabled(false);
-        jScrollPane1.setViewportView(mensajesTxt);
+        jLabel1.setBounds(150, 10, 250, 17);
 
         getContentPane().add(jScrollPane1);
         jScrollPane1.setBounds(30, 210, 410, 110);
 
         mensajeTxt.setFont(new java.awt.Font("Verdana", 0, 14)); // NOI18N
         getContentPane().add(mensajeTxt);
-        mensajeTxt.setBounds(40, 120, 350, 30);
+        mensajeTxt.setBounds(20, 120, 350, 30);
 
         jLabel3.setFont(new java.awt.Font("Verdana", 0, 14)); // NOI18N
         jLabel3.setText("Nickname:");
@@ -88,6 +92,30 @@ public class PrincipalCli extends javax.swing.JFrame {
         getContentPane().add(jLabel2);
         jLabel2.setBounds(20, 90, 120, 30);
 
+        checkBox1.setText("Enviar a todos");
+        checkBox1.setBounds(20, 170, 125, 30);
+        checkBox1.setSelected(true);
+        checkBox1.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evt) {
+                handleCheckBoxSelection(checkBox1, checkBox2);
+            }
+        });
+        getContentPane().add(checkBox1);
+
+        checkBox2.setText("Enviar a: ");
+        checkBox2.setBounds(145, 170, 100, 30);
+        checkBox2.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                handleCheckBoxSelection(checkBox2, checkBox1);
+            }
+        });
+        getContentPane().add(checkBox2);
+
+        comboBox.setModel(new DefaultComboBoxModel<>(comboBoxItems.toArray(new String[0])));
+        comboBox.setBounds(230, 170, 150, 30);
+        comboBox.setEnabled(false);
+        getContentPane().add(comboBox);
+
         btEnviar.setFont(new java.awt.Font("Verdana", 0, 14)); // NOI18N
         btEnviar.setText("Enviar");
         btEnviar.addActionListener(new java.awt.event.ActionListener() {
@@ -96,11 +124,19 @@ public class PrincipalCli extends javax.swing.JFrame {
             }
         });
         getContentPane().add(btEnviar);
-        btEnviar.setBounds(327, 160, 120, 27);
+        btEnviar.setBounds(180, 220, 120, 27);
         btEnviar.setEnabled(false);
 
-        setSize(new java.awt.Dimension(491, 375));
+        mensajesTxt.setColumns(20);
+        mensajesTxt.setRows(5);
+        mensajesTxt.setEnabled(false);
+
+        jScrollPane1.setViewportView(mensajesTxt);
+        jScrollPane1.setBounds(20, 270, 450, 200);
+
+        setSize(new java.awt.Dimension(491, 550));
         setLocationRelativeTo(null);
+        handleCheckBoxChange();
     }// </editor-fold>
 
     private void bConectarActionPerformed(java.awt.event.ActionEvent evt) {
@@ -109,9 +145,25 @@ public class PrincipalCli extends javax.swing.JFrame {
     private void btEnviarActionPerformed(java.awt.event.ActionEvent evt) {
         this.enviarMensaje();
     }
-
-
-
+    private void handleCheckBoxSelection(JCheckBox selected, JCheckBox other) {
+        if (selected.isSelected()) {
+            other.setSelected(false);
+        }
+        handleCheckBoxChange();
+    }
+    private void handleCheckBoxChange() {
+        if (checkBox2.isSelected()) {
+            comboBox.setEnabled(true);
+        } else {
+            comboBox.setEnabled(false);
+        }
+    }
+    private void updateComboBox(String[] clients) {
+        comboBox.removeAllItems();
+        for (String item : clients) {
+            comboBox.addItem(item);
+        }
+    }
     /**
      * @param args the command line arguments
      */
@@ -134,6 +186,9 @@ public class PrincipalCli extends javax.swing.JFrame {
     private javax.swing.JTextArea mensajesTxt;
     private JTextField mensajeTxt;
     private JTextField nickname;
+    private JCheckBox checkBox1;
+    private JCheckBox checkBox2;
+    private JComboBox<String> comboBox;
     // End of variables declaration
 
     private void conectar() {
@@ -156,7 +211,17 @@ public class PrincipalCli extends javax.swing.JFrame {
                     try {
                         String fromServer;
                         while ((fromServer = in.readLine()) != null) {
-                            mensajesTxt.append(fromServer + "\n");
+                            String[] parts = fromServer.split("\\&");
+                            if (parts.length > 0) {
+                                switch (parts[0]) {
+                                    case "clients":
+                                        String[] socketsClients = parts[1].split("\\,");
+                                        updateComboBox(socketsClients);
+                                        break;
+                                    default:
+                                        mensajesTxt.append(fromServer + "\n");
+                                }
+                            }
                         }
                     } catch (IOException ex) {
                         System.err.println("Conexión cerrada o error de IO: " + ex.getMessage());
@@ -164,19 +229,47 @@ public class PrincipalCli extends javax.swing.JFrame {
                         jLabel1.setText("CLIENTE: " + nickname.getText() + " (No Connection)");
                         bConectar.setEnabled(true);
                         btEnviar.setEnabled(false);
+                        comboBox.removeAllItems();
+                        checkBox1.setSelected(true);
+                        checkBox2.setSelected(false);
+                        handleCheckBoxChange();
+
                         cerrar();
                     }
                 }
             }).start();
             out.println(nickname.getText());
+            out.println("clients");
         } catch (Exception ex){
             JOptionPane.showMessageDialog(this, "Error. Intente nuevamente.");
             ex.printStackTrace();
         }
     }
     private void enviarMensaje() {
-        out.println(mensajeTxt.getText());
+        if (mensajeTxt.getText().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Ingrese un mensaje");
+            return;
+        }
+        if (validateClientsToNotify().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Selecciona a quien enviar el mensaje");
+            return;
+        }
+        out.println(validateClientsToNotify() + "&" + mensajeTxt.getText());
         mensajeTxt.setText("");
+    }
+
+    private String validateClientsToNotify() {
+        if (checkBox1.isSelected()) {
+            return "all";
+        }
+
+        if (checkBox2.isSelected()) {
+            Object selectedItem = comboBox.getSelectedItem();
+            String value = selectedItem != null ? (String) selectedItem : "";
+            return "custom&"+ value;
+        }
+
+        return "";
     }
 
     private void cerrar() {

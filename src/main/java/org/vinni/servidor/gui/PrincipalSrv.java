@@ -9,9 +9,7 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Author: Vinni
@@ -140,7 +138,7 @@ public class PrincipalSrv extends javax.swing.JFrame {
         private BufferedReader in;
         private PrintWriter out;
         private String id;
-        private boolean firstOutput = false;
+        private boolean notifiedNickname = false;
 
         public ClientHandler(Socket clientSocket) throws IOException {
             this.clientSocket = clientSocket;
@@ -153,18 +151,53 @@ public class PrincipalSrv extends javax.swing.JFrame {
             try {
                 String linea;
                 while ((linea = in.readLine()) != null) {
-                    if (!firstOutput) {
-                        this.firstOutput = true;
+                    if (!notifiedNickname) {
+                        this.notifiedNickname = true;
                         this.id = linea;
                         clientSockets.put(linea, this);
                     } else {
-                        for (Map.Entry<String, ClientHandler> client : clientSockets.entrySet()) {
-                            if (client.getValue().out != null) {
-                                if (Objects.equals(client.getKey(), id)) {
-                                    client.getValue().out.println("Tú: " + linea);
-                                } else {
-                                    client.getValue().out.println(id + " dice: " + linea);
-                                }
+                        String[] parts = linea.split("\\&");
+                        if (parts.length > 0) {
+                            switch (parts[0]) {
+                                case "all" :
+                                    for (Map.Entry<String, ClientHandler> client : clientSockets.entrySet()) {
+                                        if (client.getValue().out != null) {
+                                            if (Objects.equals(client.getKey(), id)) {
+                                                client.getValue().out.println("Tú: " + parts[1]);
+                                            } else {
+                                                client.getValue().out.println(id + " dice: " + parts[1]);
+                                            }
+                                        }
+                                    }
+                                    break;
+                                case "custom":
+                                    for (Map.Entry<String, ClientHandler> client : clientSockets.entrySet()) {
+                                        if (client.getValue().out != null) {
+                                            if (Objects.equals(client.getKey(), parts[1])) {
+                                                if (Objects.equals(client.getKey(), id)) {
+                                                    client.getValue().out.println("Tú: " + parts[2]);
+                                                } else {
+                                                    client.getValue().out.println(id + " dice: " + parts[2]);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    break;
+                                case "clients":
+                                    StringBuilder sb = new StringBuilder();
+                                    for (Map.Entry<String, ClientHandler> client : clientSockets.entrySet()) {
+                                        if (sb.length() > 0) {
+                                            sb.append(",");
+                                        }
+                                        sb.append(client.getKey());
+                                    }
+                                    String clients = "clients&" + sb;
+                                    for (Map.Entry<String, ClientHandler> client : clientSockets.entrySet()) {
+                                        if (client.getValue().out != null) {
+                                                client.getValue().out.println(clients);
+                                        }
+                                    }
+                                    break;
                             }
                         }
                     }
