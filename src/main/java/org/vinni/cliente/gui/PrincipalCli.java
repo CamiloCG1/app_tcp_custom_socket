@@ -16,7 +16,6 @@ public class PrincipalCli extends javax.swing.JFrame {
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
-    private boolean setClientID;
 
     /**
      * Creates new form Principal1
@@ -40,17 +39,18 @@ public class PrincipalCli extends javax.swing.JFrame {
         mensajesTxt = new javax.swing.JTextArea();
         mensajeTxt = new javax.swing.JTextField();
         jLabel2 = new javax.swing.JLabel();
+        jLabel3 = new javax.swing.JLabel();
         btEnviar = new javax.swing.JButton();
+        nickname = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         getContentPane().setLayout(null);
 
         bConectar.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        bConectar.setText("CONECTAR CON SERVIDOR");
+        bConectar.setText("Conectar Server");
         bConectar.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 bConectarActionPerformed(evt);
-                bConectar.setEnabled(false);
             }
         });
         getContentPane().add(bConectar);
@@ -74,6 +74,15 @@ public class PrincipalCli extends javax.swing.JFrame {
         getContentPane().add(mensajeTxt);
         mensajeTxt.setBounds(40, 120, 350, 30);
 
+        jLabel3.setFont(new java.awt.Font("Verdana", 0, 14)); // NOI18N
+        jLabel3.setText("Nickname:");
+        getContentPane().add(jLabel3);
+        jLabel3.setBounds(20, 40, 120, 30);
+
+        nickname.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        nickname.setBounds(100, 40, 120, 35);
+        getContentPane().add(nickname);
+
         jLabel2.setFont(new java.awt.Font("Verdana", 0, 14)); // NOI18N
         jLabel2.setText("Mensaje:");
         getContentPane().add(jLabel2);
@@ -88,6 +97,7 @@ public class PrincipalCli extends javax.swing.JFrame {
         });
         getContentPane().add(btEnviar);
         btEnviar.setBounds(327, 160, 120, 27);
+        btEnviar.setEnabled(false);
 
         setSize(new java.awt.Dimension(491, 375));
         setLocationRelativeTo(null);
@@ -119,41 +129,69 @@ public class PrincipalCli extends javax.swing.JFrame {
     private javax.swing.JButton btEnviar;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTextArea mensajesTxt;
     private JTextField mensajeTxt;
+    private JTextField nickname;
     // End of variables declaration
 
     private void conectar() {
         try {
-            if (socket == null || socket.isClosed()) {
-                socket = new Socket("localhost", PORT); // Asume que el servidor está en localhost y escucha en el puerto 12345
-                out = new PrintWriter(socket.getOutputStream(), true);
+            if (nickname.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Se requiere un nickname.");
+                return;
             }
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            if (socket == null || socket.isClosed()) {
+                socket = new Socket("localhost", PORT);
+                out = new PrintWriter(socket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            }
+            jLabel1.setText("CLIENTE: " + nickname.getText());
+            nickname.setEnabled(false);
+            btEnviar.setEnabled(true);
+            bConectar.setEnabled(false);
             new Thread(new Runnable() {
                 public void run() {
                     try {
                         String fromServer;
                         while ((fromServer = in.readLine()) != null) {
-                            if (!setClientID){
-                                jLabel1.setText("CLIENTE: " + fromServer);
-                                setClientID = true;
-                            } else {
-                                mensajesTxt.append(fromServer + "\n");
-                            }
+                            mensajesTxt.append(fromServer + "\n");
                         }
                     } catch (IOException ex) {
-                        ex.printStackTrace();
+                        System.err.println("Conexión cerrada o error de IO: " + ex.getMessage());
+                    } finally {
+                        jLabel1.setText("CLIENTE: " + nickname.getText() + " (No Connection)");
+                        bConectar.setEnabled(true);
+                        btEnviar.setEnabled(false);
+                        cerrar();
                     }
                 }
             }).start();
-        } catch (IOException ex){
+            out.println(nickname.getText());
+        } catch (Exception ex){
+            JOptionPane.showMessageDialog(this, "Error. Intente nuevamente.");
             ex.printStackTrace();
         }
     }
     private void enviarMensaje() {
         out.println(mensajeTxt.getText());
         mensajeTxt.setText("");
+    }
+
+    private void cerrar() {
+        try {
+            if (in != null) {
+                in.close();
+            }
+            if (out != null) {
+                out.close();
+            }
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 }

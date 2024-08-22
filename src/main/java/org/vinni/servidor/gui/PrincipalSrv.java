@@ -11,6 +11,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Author: Vinni
@@ -22,7 +23,8 @@ public class PrincipalSrv extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel1;
     private javax.swing.JTextArea mensajesTxt;
     private javax.swing.JScrollPane jScrollPane1;
-    private Map<Integer, ClientHandler> clientSockets = new HashMap<>();
+    private Map<String, ClientHandler> clientSockets = new HashMap<>();
+    private boolean running = true;
 
     /**
      * Creates new form Principal1
@@ -95,35 +97,55 @@ public class PrincipalSrv extends javax.swing.JFrame {
                     InetAddress addr = InetAddress.getLocalHost();
                     serverSocket = new ServerSocket( PORT);
                     mensajesTxt.append("Servidor TCP en ejecución: "+ addr + " ,Puerto " + serverSocket.getLocalPort()+ "\n");
-                    while (true) {
-                        Socket clientSocket = serverSocket.accept();
-                        ClientHandler newClient = new ClientHandler(clientSocket);
-                        int clientId = newClient.in.hashCode();
-                        clientSockets.put(clientId, newClient);
-                        new Thread(newClient).start();
-                        newClient.reportClientID();
+                    while (running) {
+                        try {
+                            Socket clientSocket = serverSocket.accept();
+                            if (!running) {
+                                break;
+                            }
+                            ClientHandler newClient = new ClientHandler(clientSocket);
+                            new Thread(newClient).start();
+                        } catch (IOException e) {
+                            if (running) {
+                                System.err.println("Error en el servidor: " + e.getMessage());
+                            }
+                        }
                     }
                 } catch (IOException ex) {
                     ex.printStackTrace();
                     mensajesTxt.append("Error en el servidor: " + ex.getMessage() + "\n");
+                } finally {
+                    detenerServidor();
                 }
             }
         }).start();
+    }
+
+    private void detenerServidor() {
+        running = false;
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+            for (ClientHandler handler : clientSockets.values()) {
+                handler.close();
+            }
+        } catch (IOException ex) {
+            System.err.println("Error al cerrar el servidor: " + ex.getMessage());
+        }
     }
 
     private class ClientHandler implements Runnable {
         private Socket clientSocket;
         private BufferedReader in;
         private PrintWriter out;
+        private String id;
+        private boolean firstOutput = false;
 
         public ClientHandler(Socket clientSocket) throws IOException {
             this.clientSocket = clientSocket;
             this.in = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
             this.out = new PrintWriter(clientSocket.getOutputStream(), true);
-        }
-        
-        private void reportClientID() {
-            this.out.println(this.in.hashCode());
         }
 
         @Override
@@ -131,18 +153,34 @@ public class PrincipalSrv extends javax.swing.JFrame {
             try {
                 String linea;
                 while ((linea = in.readLine()) != null) {
-                    for (Map.Entry<Integer, ClientHandler> client : clientSockets.entrySet()) {
-                        if (client.getValue().out != null) {
-                            if (client.getKey() == in.hashCode()) {
-                                client.getValue().out.println("Tú: " + linea);
-                            } else {
-                                client.getValue().out.println("User " + in.hashCode() + " dice: " + linea);
+                    if (!firstOutput) {
+                        this.firstOutput = true;
+                        this.id = linea;
+                        clientSockets.put(linea, this);
+                    } else {
+                        for (Map.Entry<String, ClientHandler> client : clientSockets.entrySet()) {
+                            if (client.getValue().out != null) {
+                                if (Objects.equals(client.getKey(), id)) {
+                                    client.getValue().out.println("Tú: " + linea);
+                                } else {
+                                    client.getValue().out.println(id + " dice: " + linea);
+                                }
                             }
                         }
                     }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+        }
+
+        public void close() {
+            try {
+                if (clientSocket != null && !clientSocket.isClosed()) {
+                    clientSocket.close();
+                }
+            } catch (IOException ex) {
+                System.err.println("Error al cerrar el socket del cliente: " + ex.getMessage());
             }
         }
     }
